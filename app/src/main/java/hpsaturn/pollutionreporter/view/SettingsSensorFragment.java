@@ -11,10 +11,10 @@ import android.view.ViewGroup;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.preference.Preference;
-//import androidx.preference.PreferenceFragmentCompat;
 import androidx.preference.PreferenceManager;
 import androidx.preference.SwitchPreference;
 
+import com.fonfon.geohash.GeoHash;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.gson.Gson;
@@ -433,7 +433,11 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
             String accu = "Accu:" + (int) lastLocation.getAccuracy() + "m ";
             String lat = "(" + precision.format(lastLocation.getLatitude());
             String lon = "," + precision.format(lastLocation.getLongitude()) + ")";
-            pref.setSummary(accu + lat + lon);
+            int bits = 4;
+            GeoHash hash = GeoHash.fromLocation(lastLocation,bits);
+            Logger.i(TAG,"[Config] "+accu + lat + lon);
+            Logger.i(TAG,"[Config] GeoHash ("+bits+") :"+hash);
+            pref.setSummary("GeoHash ("+bits+") :"+hash);
         }
     }
 

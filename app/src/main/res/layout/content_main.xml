@@ -28,4 +28,12 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <!--        app:ccp_countryPreference="US,IN,NZ" -->
+
+    <com.hbb20.CountryCodePicker
+        android:id="@+id/ccp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        />
+
 </RelativeLayout>

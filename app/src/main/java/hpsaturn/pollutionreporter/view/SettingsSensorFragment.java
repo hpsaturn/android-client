@@ -20,6 +20,7 @@ import com.fonfon.geohash.GeoHash;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.crashlytics.FirebaseCrashlytics;
 import com.google.gson.Gson;
+import com.hbb20.CountryCodePicker;
 import com.hpsaturn.tools.Logger;
 import com.takisoft.preferencex.PreferenceFragmentCompat;
 
@@ -28,6 +29,7 @@ import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.TimeZone;
 
 import hpsaturn.pollutionreporter.MainActivity;
 import hpsaturn.pollutionreporter.R;
@@ -54,6 +56,7 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
     private Location lastLocation;
     private Snackbar snackBar;
     private ResponseConfig lastDeviceConfig;
+    private CountryCodePicker ccp;
 
     @Override
     public void onCreatePreferencesFix(@Nullable Bundle savedInstanceState, String rootKey) {
@@ -68,6 +71,7 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
 
         rebuildUI();
         getCountryCode();
+
     }
 
 
@@ -101,6 +105,7 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+        ccp = (CountryCodePicker) getActivity().findViewById(R.id.ccp);
         readSensorConfig();
     }
 

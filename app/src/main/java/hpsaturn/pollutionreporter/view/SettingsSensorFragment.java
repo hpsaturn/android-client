@@ -1,6 +1,8 @@
 package hpsaturn.pollutionreporter.view;
 
 import android.content.SharedPreferences;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Handler;
@@ -21,7 +23,11 @@ import com.google.gson.Gson;
 import com.hpsaturn.tools.Logger;
 import com.takisoft.preferencex.PreferenceFragmentCompat;
 
+import java.io.IOException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 import hpsaturn.pollutionreporter.MainActivity;
 import hpsaturn.pollutionreporter.R;
@@ -61,6 +67,7 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
 //        });
 
         rebuildUI();
+        getCountryCode();
     }
 
 
@@ -412,6 +419,7 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
                     sendSensorConfig(config);
                     Handler handler = new Handler();
                     handler.postDelayed(() -> locationSwitch.setChecked(false), 2000);
+
                 });
                 snackBar.show();
             }
@@ -423,6 +431,33 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
             getMain().showSnackMessage(R.string.msg_save_location_failed);
         }
         updateLocationSummary();
+    }
+
+    private void getCountryCode () {
+        ArrayList<String> list=new ArrayList<String>();
+
+        String[] locales = Locale.getISOCountries();
+
+        int count = 0;
+        for (String countryCode : locales) {
+            count++;
+            Locale obj = new Locale("", countryCode);
+            System.out.println("[Config] [" +countryCode + "]("+count+ ") " + obj.getDisplayCountry());
+            list.add(obj.getDisplayCountry());
+        }
+    }
+
+    private void loadCountryData (double lat, double lon) {
+        try {
+            Geocoder geocoder = new Geocoder(getActivity(), Locale.getDefault());
+            List<Address> addresses = geocoder.getFromLocation(lat, lon, 1);
+            String cityName = addresses.get(0).getAddressLine(0);
+            String stateName = addresses.get(0).getAddressLine(1);
+            String countryName = addresses.get(0).getAddressLine(2);
+            Logger.i(TAG,"[Config] city:" + cityName + " state:" +stateName + " country:" +countryName );
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void updateLocationSummary() {
@@ -438,6 +473,7 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
             Logger.i(TAG,"[Config] "+accu + lat + lon);
             Logger.i(TAG,"[Config] GeoHash ("+bits+") :"+hash);
             pref.setSummary("GeoHash ("+bits+") :"+hash);
+            loadCountryData(lastLocation.getLatitude(),lastLocation.getLongitude());
         }
     }
 

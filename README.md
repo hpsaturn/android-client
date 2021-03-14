@@ -1,5 +1,5 @@
 
-[![Actions Status](https://github.com/kike-canaries/android-hpma115s0/workflows/Android%20CI/badge.svg)](https://github.com/kike-canaries/android-hpma115s0/actions) [![Liberapay Status](http://img.shields.io/liberapay/receives/CanAirIO.svg?logo=liberapay)](https://liberapay.com/CanAirIO)
+[![Actions Status](https://github.com/kike-canaries/canairio_android/workflows/Android%20CI/badge.svg)](https://github.com/kike-canaries/android-hpma115s0/actions) ![ViewCount](https://views.whatilearened.today/views/github/kike-canaries/canairio_android.svg) [![Liberapay Status](http://img.shields.io/liberapay/receives/CanAirIO.svg?logo=liberapay)](https://liberapay.com/CanAirIO)  
 
 # CanAir.io Air quality Reporter 
 
@@ -7,7 +7,7 @@
 
 [CanAirIO](https://canair.io) is a citizen science initiative for air quality tracking, visualization and dissemination by using PM2.5 particulate material sensors paired with your smartphone via bluetooth.
 
-This code is for [CanAir.io](https://canair.io) Android app that using a reporter device [esp32-hpma115s0](https://github.com/kike-canaries/esp32-hpma115s0) pollution sensor or the `Beta` version with a [Panasonic PM sensor](https://github.com/hpsaturn/CanAirIO) also you can review other version with alternatives sensors in our [wiki](https://github.com/kike-canaries/esp32-hpma115s0/wiki)
+This code is for [CanAir.io](https://canair.io) Android app that using a [DIY device](https://github.com/kike-canaries/canairio_firmware#canairio-firmware) that handle a pollution sensor (Honeywell, Sensirion, Plantower, Panasonic) or others air quality sensors.
 
 ---
 <a href="https://github.com/kike-canaries/android-hpma115s0/blob/master/screenshots/main.jpg"><img src="https://github.com/kike-canaries/android-hpma115s0/blob/master/screenshots/main.jpg" align="right" width="512" ></a>

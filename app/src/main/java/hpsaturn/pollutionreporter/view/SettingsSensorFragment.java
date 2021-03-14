@@ -12,6 +12,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.preference.ListPreference;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceManager;
 import androidx.preference.SwitchPreference;
@@ -186,6 +187,11 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
         SensorType config = new SensorType();
         config.stype = getSensorType();
         sendSensorConfig(config);
+    }
+
+    private void updateSensorTypeSummary(int value) {
+        ListPreference sizePreference = findPreference(getString(R.string.key_setting_dtype));
+        sizePreference.setValueIndex(value);
     }
 
     private int getSensorType() {
@@ -569,6 +575,10 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
                 setApiSwitch(config.aenb);
                 notify_sync = true;
             }
+            if (config.stype != getSensorType()) {
+                if (config.stype < 0) updateSensorTypeSummary(0);
+                else updateSensorTypeSummary((config.stype));
+            }
 
             updatePreferencesSummmary(config);
             saveAllPreferences(config);
@@ -613,6 +623,7 @@ public class SettingsSensorFragment extends PreferenceFragmentCompat implements 
         if(config.ssid !=null)updateSummary(R.string.key_setting_ssid,config.ssid);
         if(config.ifxdb !=null)updateSummary(R.string.key_setting_ifxdb,config.ifxdb);
         if(config.ifxip !=null)updateSummary(R.string.key_setting_ifxip,config.ifxip);
+//        if(config.stype != -1)updateSummary(R.string.key_setting_dtype,);
         if(config.stime>0)updateSummary(R.string.key_setting_stime, getStimeFormat(config.stime));
         updatePasswSummary(R.string.key_setting_pass);
         updatePasswSummary(R.string.key_setting_apipss);

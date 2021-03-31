@@ -2,7 +2,17 @@
 <PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <PreferenceCategory app:title="Mobile Station Settings">
+    <PreferenceCategory app:title="Device Status">
+        <SwitchPreference
+            app:icon="@android:drawable/ic_lock_power_off"
+            app:key="@string/key_device_status"
+            app:summary="Disconnected"
+            app:defaultValue="false"
+            app:title="Device Status:" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Mobile Station Settings"
+        android:dependency="@string/key_device_status">
 
         <EditTextPreference
             android:inputType="number"
@@ -21,6 +31,17 @@
             android:defaultValue="0"
             />
 
+        <MultiSelectListPreference
+            android:key="@string/key_setting_vars"
+            android:title="Variables"
+            app:useSimpleSummaryProvider="true"
+            android:summary="Variables  on chart"
+            android:entries="@array/pref_vars_entries"
+            android:entryValues="@array/pref_vars_values"
+            android:defaultValue="@array/pref_vars_stores"
+            />
+
+
         <EditTextPreference
             android:inputType="textUri"
             app:defaultValue="/sdcard/canairio"
@@ -32,7 +53,8 @@
     </PreferenceCategory>
 
     <PreferenceCategory
-        app:title="Fixed Station Settings">
+        app:title="Fixed Station Settings"
+        android:dependency="@string/key_device_status">
 
         <EditTextPreference
             android:inputType="text"
@@ -130,7 +152,8 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Optional Device Settings">
+    <PreferenceCategory app:title="Optional Device Settings"
+        android:dependency="@string/key_device_status">
 
         <SwitchPreference
             app:key="@string/key_setting_enable_location"
@@ -159,6 +182,15 @@
             app:summary="Report technical issues or suggest new features"
             app:title="Send Feedback" />
     </PreferenceCategory>
+
+    <PreferenceCategory app:title="">
+        <Preference
+            app:icon="@android:drawable/ic_popup_sync"
+            app:key="@string/key_device_info"
+            app:summary=""
+            app:title="Device info:" />
+    </PreferenceCategory>
+
 
 
 </PreferenceScreen>

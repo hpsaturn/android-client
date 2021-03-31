@@ -20,7 +20,6 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.hpsaturn.tools.Logger;
 import com.iamhabib.easy_preference.EasyPreference;
-//import com.livinglifetechway.quickpermissions.annotations.WithPermissions;
 import com.karumi.dexter.Dexter;
 import com.karumi.dexter.MultiplePermissionsReport;
 import com.karumi.dexter.PermissionToken;
@@ -84,6 +83,8 @@ public class MainActivity extends BaseActivity implements
     private SettingsSensorFragment settingsSensorFragment;
     private DatabaseReference mDatabase;
 
+    private boolean deviceConnected = false;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,11 +117,13 @@ public class MainActivity extends BaseActivity implements
         @Override
         public void onServiceStatus(String status) {
             if (status.equals(RecordTrackManager.STATUS_BLE_START)) {
-//                showFragment(chartFragment);
+                deviceConnected = true;
             } else if (status.equals(RecordTrackManager.STATUS_SERVICE_OK)){
             } else if (status.equals(RecordTrackManager.STATUS_BLE_FAILURE)) {
                 showSnackMessage(R.string.msg_device_reconnecting);
+                deviceConnected = false;
             }
+            if(settingsSensorFragment !=null)  settingsSensorFragment.setStatusSwitch(deviceConnected);
         }
 
         @Override
@@ -134,8 +137,7 @@ public class MainActivity extends BaseActivity implements
 
         @Override
         public void onSensorNotificationData(SensorData data) {
-//            if (recordsFragment!=null && !recordsFragment.isShowingData()) fabUpdateLayout();
-            if (chartFragment != null) chartFragment.addData(data.P25);
+
         }
 
         @Override
@@ -170,7 +172,7 @@ public class MainActivity extends BaseActivity implements
 
         @Override
         public void onSensorDataRead(SensorData data) {
-
+            if (chartFragment != null)chartFragment.addData(data);
         }
 
         @Override
@@ -207,6 +209,10 @@ public class MainActivity extends BaseActivity implements
         prefBuilder.addBoolean(Keys.SENSOR_RECORD, true).save();
         recordTrackManager.serviceRecord();
         fabUpdateLayout();
+    }
+
+    public void readSensorData() {
+        recordTrackManager.readSensorData();
     }
 
 
@@ -466,6 +472,10 @@ public class MainActivity extends BaseActivity implements
         return prefBuilder.getBoolean(Keys.DEVICE_PAIR, false);
     }
 
+    public boolean isDeviceConnected() {
+        return deviceConnected;
+    }
+
     @Override
     public void onBackPressed() {
         if(settingsSensorFragment !=null && settingsSensorFragment.isVisible()){
@@ -505,5 +515,14 @@ public class MainActivity extends BaseActivity implements
     public boolean onPreferenceStartFragment(PreferenceFragmentCompat caller, Preference pref) {
         Logger.d(TAG, "onPreferenceStartFragment");
         return false;
+    }
+
+    public void selectedVarsUpdated() {
+        if (chartFragment!=null)chartFragment.loadSelectedVariables();
+    }
+
+    public void showTrackInfoFragment(String trackId) {
+        ChartFragment chart = ChartFragment.newInstance(trackId);
+        addInfoFragment(chart,ChartFragment.TAG_INFO);
     }
 }

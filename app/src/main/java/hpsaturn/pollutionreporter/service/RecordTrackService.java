@@ -29,7 +29,6 @@ import hpsaturn.pollutionreporter.common.BLEHandler;
 import hpsaturn.pollutionreporter.common.Keys;
 import hpsaturn.pollutionreporter.common.Storage;
 import hpsaturn.pollutionreporter.models.ResponseConfig;
-import hpsaturn.pollutionreporter.models.SensorConfig;
 import hpsaturn.pollutionreporter.models.SensorData;
 import hpsaturn.pollutionreporter.models.SensorTrack;
 import io.nlopez.smartlocation.OnLocationUpdatedListener;
@@ -50,6 +49,8 @@ public class RecordTrackService extends Service {
     private RecordTrackManager recordTrackManager;
 
     private final int RETRY_POLICY = 5;
+    private final int MAX_POINTS_SAVING = 1500;
+
     private int retry_connect = 0;
     private int retry_notify_setup = 0;
 
@@ -80,7 +81,10 @@ public class RecordTrackService extends Service {
         if (prefBuilder.getBoolean(Keys.DEVICE_PAIR, false)) {
             if (bleHandler == null) {
                 connect();
-            } else if (bleHandler.isConnected()) Logger.i(TAG, "[BLE] already connected!");
+            } else if (bleHandler.isConnected()) {
+                Logger.i(TAG, "[BLE] already connected!");
+                recordTrackManager.status(RecordTrackManager.STATUS_BLE_START);
+            }
             else connect();
         } else Logger.w(TAG, "[BLE] not BLE connection (not MAC register)");
     }
@@ -131,8 +135,6 @@ public class RecordTrackService extends Service {
 
         @Override
         public void onServiceStart() {
-//            Logger.d(TAG, "[BLE] request service start..");
-//            startConnection();
         }
 
         @Override
@@ -253,10 +255,7 @@ public class RecordTrackService extends Service {
 
         @Override
         public void onNotificationReceived(byte[] bytes) {
-            SensorData data = getSensorData(bytes);
-            if (isRecording) record(data);
-            Logger.d(TAG, "[BLE] pushing notification data to GUI..");
-            recordTrackManager.sensorNotificationData(data);
+            if (bleHandler != null) bleHandler.readSensorData();
             retry_notify_setup = 0;
         }
 
@@ -269,7 +268,9 @@ public class RecordTrackService extends Service {
 
         @Override
         public void onSensorDataRead(byte[] bytes) {
-
+            SensorData data = getSensorData(bytes);
+            if (isRecording) record(data);
+            recordTrackManager.responseSensorData(data);
         }
 
         @Override
@@ -288,6 +289,7 @@ public class RecordTrackService extends Service {
         SensorData data = new Gson().fromJson(strdata, SensorData.class);
         data.timestamp = System.currentTimeMillis() / 1000;
         Location lastLocation = SmartLocation.with(this).location().getLastLocation();
+        assert lastLocation != null;
         data.lat = lastLocation.getLatitude();
         data.lon = lastLocation.getLongitude();
         return data;
@@ -299,6 +301,10 @@ public class RecordTrackService extends Service {
         Logger.d(TAG, "[BLE] data size: " + data.size());
         Storage.setSensorData(this, data);
         Logger.d(TAG, "[BLE] saving sensor data done.");
+        if (data.size()==MAX_POINTS_SAVING){
+            Logger.d(TAG, "[BLE] saving partial track..");
+            saveTrack();
+        }
     }
 
     private void saveTrack() {

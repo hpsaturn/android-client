@@ -13,6 +13,8 @@ import androidx.core.content.res.ResourcesCompat;
 import androidx.fragment.app.Fragment;
 import androidx.preference.PreferenceManager;
 
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.Query;
 import com.hpsaturn.tools.Logger;
 
 import org.osmdroid.config.Configuration;
@@ -20,9 +22,10 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 import org.osmdroid.views.overlay.Marker;
-import org.osmdroid.views.overlay.infowindow.MarkerInfoWindow;
 
 import hpsaturn.pollutionreporter.BuildConfig;
+import hpsaturn.pollutionreporter.Config;
+import hpsaturn.pollutionreporter.MainActivity;
 import hpsaturn.pollutionreporter.R;
 import hpsaturn.pollutionreporter.api.AqicnApiManager;
 import hpsaturn.pollutionreporter.api.AqicnDataResponse;
@@ -75,20 +78,44 @@ public class MapFragment extends Fragment {
         mapView.setUseDataConnection(true); //keeps the mapView from loading online tiles using network connection.
         mapView.setEnabled(true);
         (mapView.getTileProvider().getTileCache()).getProtectedTileComputers().clear();
+        loadLastTracks();
+    }
+
+    private void loadLastTracks() {
+        Query query = getMain().getDatabase().child(Config.FB_TRACKS_INFO).orderByKey().limitToLast(500);
+        query.get().addOnCompleteListener(task -> {
+
+            if (task.isSuccessful()) {
+                Iterable<DataSnapshot> data = task.getResult().getChildren();
+                for (DataSnapshot datum : data) {
+                    SensorTrackInfo track = datum.getValue(SensorTrackInfo.class);
+                    if (track.getSize() > 0 && track.getSize() < 3000) addMarker(track);
+                }
+                Logger.i(TAG,"markers count:"+mapView.getOverlays().size());
+            }
+        });
+
     }
 
     public void addMarker(SensorTrackInfo trackInfo) {
-        Drawable icon = ResourcesCompat.getDrawable(getResources(), R.drawable.map_mark_yellow, null);
-        MarkerInfoWindow infoWindow = new MarkerInfoWindow(org.osmdroid.bonuspack.R.layout.bonuspack_bubble, mapView);
         Marker pointMarker = new Marker(mapView);
-        pointMarker.setTitle("" + trackInfo.getDate());
+        pointMarker.setOnMarkerClickListener((marker, mapView) -> {
+            Logger.d(TAG, "OnMarkerClickListener => " + trackInfo.getName());
+            getMain().showTrackInfoFragment(trackInfo.getName());
+            return true;
+        });
+
         SensorData lastSensorData = trackInfo.getLastSensorData();
-        if(lastSensorData!=null) pointMarker.setSnippet("Last PM2.5: "+ lastSensorData.P25);
-        pointMarker.setSubDescription("report: "+trackInfo.getSize()+ " points");
+
+        Drawable icon;
+        if(lastSensorData!=null && lastSensorData.P25 > 20)
+            icon = ResourcesCompat.getDrawable(getResources(), R.drawable.map_mark_red, null);
+        else
+            icon = ResourcesCompat.getDrawable(getResources(), R.drawable.map_mark_yellow, null);
+
         pointMarker.setPosition(new GeoPoint(trackInfo.getLastLat(), trackInfo.getLastLon()));
-        pointMarker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
         pointMarker.setIcon(icon);
-        pointMarker.setInfoWindow(infoWindow);
+
         mapView.getOverlays().add(pointMarker);
         mapView.getController().setCenter(new GeoPoint(trackInfo.getLastLat(),trackInfo.getLastLon()));
     }
@@ -110,6 +137,9 @@ public class MapFragment extends Fragment {
                 });
     }
 
+    private MainActivity getMain() {
+        return ((MainActivity) getActivity());
+    }
 
 
 }

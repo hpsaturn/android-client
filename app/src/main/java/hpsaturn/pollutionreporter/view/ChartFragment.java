@@ -1,22 +1,24 @@
 package hpsaturn.pollutionreporter.view;
 
+import android.content.SharedPreferences;
+import android.graphics.Paint;
 import android.os.Bundle;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
+import androidx.preference.PreferenceManager;
+
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.Description;
 import com.github.mikephil.charting.components.XAxis;
-import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
-import com.github.mikephil.charting.data.LineDataSet;
-import com.github.mikephil.charting.utils.ColorTemplate;
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -24,11 +26,18 @@ import com.google.firebase.database.ValueEventListener;
 import com.hpsaturn.tools.DeviceUtil;
 import com.hpsaturn.tools.Logger;
 
+import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.BoundingBox;
+import org.osmdroid.util.GeoPoint;
+import org.osmdroid.views.MapView;
+import org.osmdroid.views.overlay.Polyline;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
+import java.util.Set;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
@@ -46,6 +55,8 @@ import hpsaturn.pollutionreporter.models.SensorTrackInfo;
 public class ChartFragment extends Fragment {
 
     public static String TAG = ChartFragment.class.getSimpleName();
+
+    public static String TAG_INFO = "INFO"+ChartFragment.class.getSimpleName();
 
     @BindView(R.id.lc_measures)
     LineChart chart;
@@ -65,16 +76,21 @@ public class ChartFragment extends Fragment {
     @BindView(R.id.rl_separator)
     RelativeLayout rl_separator;
 
-
-    private List<Entry> entries = new ArrayList<Entry>();
-    private LineDataSet dataSet;
-    private int i;
     private long referenceTimestamp;
     private boolean loadingData = true;
 
     private static final String KEY_RECORD_ID = "key_record_id";
     private String recordId;
     private SensorTrack track;
+
+    private List<ChartVar> variables = new ArrayList<>();
+
+    private List<ILineDataSet> dataSets = new ArrayList<>();
+
+    private Map<String,String> map = new HashMap<>();
+
+    private List<GeoPoint> geoPoints = new ArrayList<>();
+    private MapView mapView;
 
     public static ChartFragment newInstance() {
         return new ChartFragment();
@@ -91,69 +107,70 @@ public class ChartFragment extends Fragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
 
-        View view = inflater.inflate(R.layout.fragment_chart, container, false);
-        ButterKnife.bind(this, view);
-
-        Description description = new Description();
-        description.setTextColor(ColorTemplate.VORDIPLOM_COLORS[2]);
-        description.setText(getString(R.string.app_name));
-
-        chart.setDescription(description);
-        chart.setNoDataText(getString(R.string.msg_chart_loading));
-
-        //Display the axis on the left (contains the labels 1*, 2* and so on)
-        XAxis xAxis = chart.getXAxis();
-        xAxis.setPosition(XAxis.XAxisPosition.BOTH_SIDED);
-        xAxis.setEnabled(true);
-
-        calculateReferenceTime();
-
-        dataSet = new LineDataSet(entries, getString(R.string.label_pm25));
-        dataSet.setColor(R.color.colorPrimary);
-        dataSet.setHighlightEnabled(true);
-        dataSet.setValueTextColor(R.color.colorPrimaryDark);
-
+        // Try to load old track (records view)
+        View view;
         Bundle args = getArguments();
         if(args!=null){
             recordId = args.getString(KEY_RECORD_ID) ;
             Logger.i(TAG,"[CHART] recordId: "+recordId);
+            view = inflater.inflate(R.layout.fragment_chart, container, false);
+            mapView = view.findViewById(R.id.mapview);
+        }else{
+            view = inflater.inflate(R.layout.fragment_chart_realtime, container, false);
+        }
+
+        ButterKnife.bind(this, view);
+
+        Description description = new Description();
+        description.setTextColor(getResources().getColor(R.color.black));
+        description.setText(getString(R.string.app_name));
+        description.setTextSize(16f);
+        description.setTextAlign(Paint.Align.RIGHT);
+
+        chart.setDescription(description);
+        chart.setNoDataText(getString(R.string.msg_chart_loading));
+
+        // Display the axis on the left (contains the labels 1*, 2* and so on)
+        XAxis xAxis = chart.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTH_SIDED);
+        xAxis.setEnabled(true);
+        // Time reference for XAxis
+        calculateReferenceTime();
+        // Current variables supported
+        String[] labels = getResources().getStringArray(R.array.pref_vars_entries);
+        String[] types = getResources().getStringArray(R.array.pref_vars_values);
+        // Hash map of types and labels (it will not change)
+        for (int i = 0; i < labels.length ; i++){
+            map.put(types[i],labels[i]);
         }
 
         return view;
+    }
+
+    private void setupMap() {
+        mapView.setVisibility(View.VISIBLE);
+        mapView.setClickable(true);
+        mapView.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE);
+        mapView.setMultiTouchControls(true);
+        mapView.setMaxZoomLevel((double) 19);
+        mapView.getController().setZoom((double) 17); //set initial zoom-level, depends on your need
+        mapView.setUseDataConnection(true); //keeps the mapView from loading online tiles using network connection.
+        mapView.setEnabled(true);
+        (mapView.getTileProvider().getTileCache()).getProtectedTileComputers().clear();
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         Logger.i(TAG,"[CHART] starting load data thread..");
-        requireActivity().runOnUiThread(this::loadData);
+        loadSelectedVariables();
+        if(recordId!=null) requireActivity().runOnUiThread(this::setupMap);
     }
 
-    private void calculateReferenceTime(){
-        ArrayList<SensorData> data = Storage.getSensorData(getActivity());
-        if (data.isEmpty()) {
-            referenceTimestamp = System.currentTimeMillis() / 1000;
-        } else {
-            referenceTimestamp = data.get(0).timestamp;
-        }
-        HourAxisValueFormatter xAxisFormatter = new HourAxisValueFormatter(referenceTimestamp);
-        XAxis xAxis = chart.getXAxis();
-        xAxis.setValueFormatter(xAxisFormatter);
-    }
-
-    public void addData(int value) {
-        if (!loadingData) {
-            Long currentTime = System.currentTimeMillis() / 1000;
-            long time = currentTime - referenceTimestamp;
-            dataSet.addEntry(new Entry(time, value));
-            dataSet.notifyDataSetChanged();
-            LineData lineData = new LineData(dataSet);
-            chart.setData(lineData);
-            chart.notifyDataSetChanged();
-            chart.invalidate();
-        }
-    }
-
+    /**
+     * initialization of data for chart and map
+     * load data of current recording track or old recorded track
+     */
     private void loadData() {
         Logger.i(TAG,"[CHART] loading data..");
         loadingData = true;
@@ -179,7 +196,7 @@ public class ChartFragment extends Fragment {
                         SensorTrack track = dataSnapshot.getValue(SensorTrack.class);
                         if(track!=null){
                             Logger.i(TAG,"[CHART] loading track on chart..");
-                            loadChart(track.data);
+                            addData(track.data);
                             setTrackDescription(track);
                         }
                         else{
@@ -194,24 +211,123 @@ public class ChartFragment extends Fragment {
                 });
             }
         }
-        loadChart(data);
+        addData(data);
     }
 
-    private void loadChart(ArrayList<SensorData> data){
+    public void loadSelectedVariables(){
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(getMain());
+        Set<String> values = preferences.getStringSet(getString(R.string.key_setting_vars), null);
+
+        variables.clear();
+
+        Logger.i(TAG, "[CHART] selected values:");
+
+        for (String type : values) {
+            ChartVar var = new ChartVar(getContext(), type, map.get(type));
+            variables.add(var);
+            Logger.i(TAG, "[CHART]"+type);
+        }
+
+        requireActivity().runOnUiThread(this::loadData);
+    }
+
+
+    private void calculateReferenceTime(){
+        ArrayList<SensorData> data = Storage.getSensorData(getActivity());
+        if (data.isEmpty()) {
+            referenceTimestamp = System.currentTimeMillis() / 1000;
+        } else {
+            referenceTimestamp = data.get(0).timestamp;
+        }
+        HourAxisValueFormatter xAxisFormatter = new HourAxisValueFormatter(referenceTimestamp);
+        XAxis xAxis = chart.getXAxis();
+        xAxis.setValueFormatter(xAxisFormatter);
+    }
+
+
+    /**
+     *  Add data from previous data (recorded track for example)
+      * @param data
+     */
+    private void addData(ArrayList<SensorData> data){
         if(data==null)return;
-        if (data.isEmpty()) addData(0);
-        else {
+        else if (!data.isEmpty()) {
             Iterator<SensorData> it = data.iterator();
-            while (it.hasNext()) {
-                SensorData value = it.next();
-                Long time = value.timestamp - referenceTimestamp;
-                dataSet.addEntry(new Entry(time, value.P25));
+            int count = 0;
+            while (it.hasNext() && count++ <3000) {
+                SensorData d = it.next();
+                long time = d.timestamp - referenceTimestamp;
+                addValue(time,d);
             }
-            LineData lineData = new LineData(dataSet);
-            chart.setData(lineData);
-            chart.invalidate();
+
+            refreshDataSets();
         }
         loadingData = false;
+    }
+
+    private void addValue(long time, SensorData data) {
+        Iterator<ChartVar> it = variables.iterator();
+        while (it.hasNext()){
+            ChartVar var = it.next();
+            var.addValue(time,data);
+            if(recordId!=null && var.type.equals("P25"))addMapSegment(var,data);
+        }
+    }
+
+    private void refreshDataSets() {
+        dataSets.clear();
+
+        Iterator<ChartVar> it = variables.iterator();
+
+        while (it.hasNext()){
+            ChartVar var = it.next();
+            var.refresh();
+            dataSets.add(var.dataSet);
+        }
+
+        LineData linedata = new LineData(dataSets);
+
+        chart.setData(linedata);
+        chart.notifyDataSetChanged();
+        chart.invalidate();
+
+        if(recordId!=null)updateMap();
+    }
+
+    /**
+     * Add external data to fragment (real time visualization)
+     * @param data
+     */
+    public void addData(SensorData data) {
+        if (!loadingData) {
+            Long currentTime = System.currentTimeMillis() / 1000;
+            long time = currentTime - referenceTimestamp;
+            addValue(time,data);
+            refreshDataSets();
+        }
+    }
+
+    private void addMapSegment(ChartVar var, SensorData data) {
+        geoPoints.add(new GeoPoint(data.lat,data.lon));
+        if(geoPoints.size()>1){
+            Polyline line = new Polyline();   //see note below!
+            List<GeoPoint> segment = new ArrayList<>();
+            segment.add(geoPoints.get(geoPoints.size()-2));
+            segment.add(geoPoints.get(geoPoints.size()-1));
+            line.setPoints(segment);
+            line.getOutlinePaint().setColor(var.colors.get(var.colors.size()-1));
+            line.getOutlinePaint().setStrokeWidth(18F);
+            line.getOutlinePaint().setStrokeCap(Paint.Cap.ROUND);
+            line.getOutlinePaint().setAntiAlias(true);
+            mapView.getOverlayManager().add(line);
+        }
+    }
+
+    private void updateMap() {
+        if(geoPoints.size()>1) {
+            BoundingBox center = BoundingBox.fromGeoPoints(geoPoints);
+            mapView.zoomToBoundingBox(center, false);
+        }
     }
 
     private void setTrackDescription(SensorTrack track){
@@ -230,13 +346,14 @@ public class ChartFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        calculateReferenceTime();
     }
 
     public void clearData() {
         Logger.w(TAG, "[CHART] clear recorded data and chart..");
-        entries.clear();
-        dataSet.clear();
+        Iterator<ChartVar> it = variables.iterator();
+        while (it.hasNext()){
+            it.next().clear();
+        }
         chart.clear();
         Storage.setSensorData(getActivity(), new ArrayList<>());
         calculateReferenceTime();
